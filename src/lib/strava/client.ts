@@ -15,10 +15,10 @@ export async function refreshStravaToken(refreshToken: string) {
   return response.json();
 }
 
-export async function fetchActivities(accessToken: string, after?: number) {
+export async function fetchActivities(accessToken: string, page: number = 1) {
   const url = new URL(`${STRAVA_API_URL}/athlete/activities`);
-  if (after) url.searchParams.append('after', after.toString());
-  url.searchParams.append('per_page', '50');
+  url.searchParams.append('page', page.toString());
+  url.searchParams.append('per_page', '100');
   
   const response = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -35,7 +35,7 @@ export async function fetchActivityStreams(accessToken: string, activityId: numb
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!response.ok) {
-    if (response.status === 404) return null; // No streams available
+    if (response.status === 404) return null; 
     throw new Error('Failed to fetch activity streams');
   }
   return response.json();

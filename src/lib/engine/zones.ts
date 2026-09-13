@@ -12,11 +12,11 @@ export function calculateKarvonenZones(restingHR: number, maxHR: number): HeartR
   const getZoneLimit = (percent: number) => Math.round(restingHR + (hrr * percent));
 
   return {
-    z1: [getZoneLimit(0.50), getZoneLimit(0.60)], // 50-60%
-    z2: [getZoneLimit(0.60), getZoneLimit(0.70)], // 60-70%
-    z3: [getZoneLimit(0.70), getZoneLimit(0.80)], // 70-80%
-    z4: [getZoneLimit(0.80), getZoneLimit(0.90)], // 80-90%
-    z5: [getZoneLimit(0.90), getZoneLimit(1.00)], // 90-100%
+    z1: [getZoneLimit(0.50), getZoneLimit(0.60)], // Récupération (< SV1)
+    z2: [getZoneLimit(0.60), getZoneLimit(0.75)], // Endurance Fondamentale (jusqu'à SV1)
+    z3: [getZoneLimit(0.75), getZoneLimit(0.84)], // Tempo / Sweet Spot (entre SV1 et SV2)
+    z4: [getZoneLimit(0.84), getZoneLimit(0.90)], // Seuil Anaérobie (SV2)
+    z5: [getZoneLimit(0.90), getZoneLimit(1.00)], // VMA / VO2Max
   };
 }
 

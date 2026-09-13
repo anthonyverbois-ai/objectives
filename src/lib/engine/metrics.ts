@@ -14,15 +14,14 @@ export function computeActivityMetrics(streams: Streams, restingHR: number, maxH
   const timeData = streams.time?.data;
 
   const zones = calculateKarvonenZones(restingHR, maxHR);
-  const timeInZones = [0, 0, 0, 0, 0, 0]; // index 0 is below Z1
+  const timeInZones = [0, 0, 0, 0, 0, 0]; 
 
-  let totalValidHR = 0;
-  let hrCount = 0;
-  let totalPace = 0; // sum of seconds per km
-  let paceCount = 0;
+  let z2ValidHR = 0;
+  let z2Velocity = 0;
+  let z2Count = 0;
 
-  let z4CadenceSum = 0;
-  let z4CadenceCount = 0;
+  let z4VelocitySum = 0;
+  let z4Count = 0;
 
   if (hrData && timeData && hrData.length === timeData.length) {
     for (let i = 1; i < hrData.length; i++) {
@@ -32,32 +31,34 @@ export function computeActivityMetrics(streams: Streams, restingHR: number, maxH
       const zoneIdx = getZoneForHR(hr, zones);
       timeInZones[zoneIdx] += deltaT;
 
-      totalValidHR += hr;
-      hrCount++;
+      const v = velocityData && velocityData[i] ? velocityData[i] : 0;
 
-      // Cadence at threshold (Z4)
-      if (zoneIdx === 4 && cadenceData && cadenceData[i]) {
-        z4CadenceSum += cadenceData[i] * 2; // Strava usually provides 1 leg SPM, multiply by 2
-        z4CadenceCount++;
+      // Efficience calculée uniquement en Zone 2 et si en mouvement
+      if (zoneIdx === 2 && v > 0) {
+        z2ValidHR += hr;
+        z2Velocity += v;
+        z2Count++;
+      }
+
+      // Vitesse au seuil (Z4)
+      if (zoneIdx === 4 && v > 0) {
+        z4VelocitySum += v;
+        z4Count++;
       }
     }
   }
 
-  if (velocityData && hrData) {
-    for (let i = 0; i < velocityData.length; i++) {
-      const v = velocityData[i];
-      if (v > 0) {
-        const paceSecKm = 1000 / v;
-        totalPace += paceSecKm;
-        paceCount++;
-      }
-    }
+  // Aerobic Efficiency = Meters per Heartbeat IN ZONE 2
+  // (avgVelocity * 60) / avgHR
+  let aerobicEfficiency = null;
+  if (z2Count > 0) {
+    const avgHR = z2ValidHR / z2Count;
+    const avgVelocity = z2Velocity / z2Count;
+    aerobicEfficiency = (avgVelocity * 60) / avgHR;
   }
 
-  const avgHR = hrCount > 0 ? totalValidHR / hrCount : null;
-  const avgPacePerKm = paceCount > 0 ? totalPace / paceCount : null;
-  const aerobicEfficiency = (avgPacePerKm && avgHR) ? avgPacePerKm / avgHR : null;
-  const cadenceAtThreshold = z4CadenceCount > 0 ? z4CadenceSum / z4CadenceCount : null;
+  // Vitesse au seuil en m/s
+  const speedAtThreshold = z4Count > 0 ? z4VelocitySum / z4Count : null;
 
   return {
     timeInZone1: timeInZones[1],
@@ -65,8 +66,7 @@ export function computeActivityMetrics(streams: Streams, restingHR: number, maxH
     timeInZone3: timeInZones[3],
     timeInZone4: timeInZones[4],
     timeInZone5: timeInZones[5],
-    avgPacePerKm,
     aerobicEfficiency,
-    cadenceAtThreshold,
+    speedAtThreshold,
   };
 }

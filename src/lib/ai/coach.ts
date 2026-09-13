@@ -4,30 +4,30 @@ export async function generateConfidenceScore(apiKey: string, contextData: any) 
   const ai = new GoogleGenAI({ apiKey });
 
   const prompt = `
-RÔLE : Tu es un coach running expert, analytique et sans complaisance.
-Tu ne cherches pas à faire plaisir. Tu dis la vérité sur les chances d'atteinte de l'objectif.
+RÔLE : Tu es un coach running de haut niveau, expert en physiologie du sport.
+Tu analyses l'évolution chronologique d'un "macrocycle" d'entraînement (semaine par semaine) pour identifier la vraie dynamique de charge, l'affûtage (tapering), et l'assimilation. Tu ne fais pas que de simples moyennes.
 
 OBJECTIF DE L'ATHLÈTE :
-${contextData.eventName} le ${contextData.eventDate} en moins de ${contextData.targetTime / 60} minutes
-Distance : ${contextData.distance}m
+Événement : ${contextData.eventName} (${contextData.distance}m) dans ${contextData.weeksToEvent} semaines.
+Chrono cible : ${Math.floor(contextData.targetTime / 60)} minutes.
 
 PROFIL DE L'ATHLÈTE :
 Âge: ${contextData.age}, Sexe: ${contextData.sex}, Poids: ${contextData.weight}kg
 FC repos: ${contextData.restingHR} bpm, FC max: ${contextData.maxHR} bpm
 
-DONNÉES D'ENTRAÎNEMENT RÉCENTES :
-- Volume total récent : ${contextData.totalKm} km
-- Efficience aérobie (pace/FC) : ${contextData.aerobicEfficiency}
-- Cadence moyenne au seuil : ${contextData.thresholdCadence} SPM
-- Temps en zones (secondes) : Z1=${contextData.timeInZone1}, Z2=${contextData.timeInZone2}, Z3=${contextData.timeInZone3}, Z4=${contextData.timeInZone4}, Z5=${contextData.timeInZone5}
+MACROCYCLE D'ENTRAÎNEMENT (12 dernières semaines, chronologique) :
+(S-0 = cette semaine, S-11 = il y a 11 semaines. Eff(Z2) = Efficience aérobie m/battement (PLUS HAUT EST MIEUX). Ratio = % de temps passé en Endurance Fondamentale (Z1/Z2) vs Haute Intensité (Z3+)).
+
+${contextData.macrocycleSummary}
 
 CONSIGNES :
-1. Donne un SCORE DE CONFIANCE de 0 à 100 sur l'atteinte de l'objectif.
-2. Liste les POINTS FORTS (max 3) avec données chiffrées à l'appui.
-3. Liste les FAIBLESSES (max 3) avec données chiffrées à l'appui — sois cash.
-4. Donne des ACTIONS CONCRÈTES (max 3) pour augmenter le score.
+1. Analyse la dynamique semaine après semaine (volume progressif ? sortie longue adéquate par rapport à la distance cible ? amélioration de l'efficience ?).
+2. Donne un SCORE DE CONFIANCE (0-100) fondé sur cette évolution et le temps restant avant la course.
+3. Liste les POINTS FORTS (max 3) avec des données chiffrées issues de la progression hebdomadaire (ex: "Le volume a cru de X à Y, l'efficience a grimpé...").
+4. Liste les FAIBLESSES (max 3) avec des données chiffrées et une approche coach (ex: "La sortie longue stagne à X km depuis 3 semaines").
+5. Donne des ACTIONS CONCRÈTES (max 3) calibrées selon les semaines restantes (Tapering ou Surcharge).
 
-RÉPOND UNIQUEMENT AVEC CE FORMAT JSON EXACT, SANS BACKTICKS, SANS TEXTE AVANT NI APRÈS :
+RÉPOND UNIQUEMENT AVEC CE FORMAT JSON EXACT :
 {
   "score": 65,
   "summary": "Résumé cash en une phrase.",
@@ -38,7 +38,7 @@ RÉPOND UNIQUEMENT AVEC CE FORMAT JSON EXACT, SANS BACKTICKS, SANS TEXTE AVANT N
 `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.6-flash',
     contents: prompt,
     config: {
       responseMimeType: 'application/json',

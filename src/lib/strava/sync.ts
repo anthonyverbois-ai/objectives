@@ -9,7 +9,6 @@ export async function syncUserActivities(userId: string) {
 
   let accessToken = user.stravaAccessToken;
   
-  // Refresh token if expired
   if (user.stravaTokenExpiresAt && user.stravaTokenExpiresAt < Date.now() / 1000) {
     const refreshed = await refreshStravaToken(user.stravaRefreshToken!);
     accessToken = refreshed.access_token;
@@ -20,46 +19,57 @@ export async function syncUserActivities(userId: string) {
     }).where(eq(users.id, userId));
   }
 
-  // Fetch recent activities (e.g. past 6 months)
   const sixMonthsAgo = Math.floor(Date.now() / 1000) - (6 * 30 * 24 * 60 * 60);
-  const acts = await fetchActivities(accessToken, sixMonthsAgo);
+  let page = 1;
+  let keepFetching = true;
 
-  for (const act of acts) {
-    if (act.type !== 'Run') continue; // Only process runs for now
+  while (keepFetching) {
+    const acts = await fetchActivities(accessToken, page);
+    if (acts.length === 0) break;
 
-    const existingAct = await db.select().from(activities).where(eq(activities.stravaId, act.id)).get();
-    
-    if (!existingAct) {
-      // Insert new activity
-      const newActId = crypto.randomUUID();
-      await db.insert(activities).values({
-        id: newActId,
-        userId,
-        stravaId: act.id,
-        name: act.name,
-        sportType: act.type,
-        date: act.start_date,
-        distance: act.distance,
-        movingTime: act.moving_time,
-        elapsedTime: act.elapsed_time,
-        elevationGain: act.total_elevation_gain,
-        avgHeartrate: act.average_heartrate,
-        maxHeartrate: act.max_heartrate,
-        avgCadence: act.average_cadence,
-        avgSpeed: act.average_speed,
-        createdAt: new Date(),
-      });
+    for (const act of acts) {
+      if (new Date(act.start_date).getTime() / 1000 < sixMonthsAgo) {
+        keepFetching = false;
+        break; // Stop processing older acts
+      }
 
-      // Fetch and save streams if not already fetched
-      if (act.has_heartrate) {
-        const streams = await fetchActivityStreams(accessToken, act.id);
-        if (streams) {
-          await db.update(activities).set({
-            hasStreams: true,
-            rawStreams: JSON.stringify(streams),
-          }).where(eq(activities.id, newActId));
+      if (act.type !== 'Run') continue; 
+
+      const existingAct = await db.select().from(activities).where(eq(activities.stravaId, act.id)).get();
+      
+      if (!existingAct) {
+        const newActId = crypto.randomUUID();
+        await db.insert(activities).values({
+          id: newActId,
+          userId,
+          stravaId: act.id,
+          name: act.name,
+          sportType: act.type,
+          date: act.start_date,
+          distance: act.distance,
+          movingTime: act.moving_time,
+          elapsedTime: act.elapsed_time,
+          elevationGain: act.total_elevation_gain,
+          avgHeartrate: act.average_heartrate,
+          maxHeartrate: act.max_heartrate,
+          avgCadence: act.average_cadence,
+          avgSpeed: act.average_speed,
+          createdAt: new Date(),
+        });
+
+        if (act.has_heartrate) {
+          const streams = await fetchActivityStreams(accessToken, act.id);
+          if (streams) {
+            await db.update(activities).set({
+              hasStreams: true,
+              rawStreams: JSON.stringify(streams),
+            }).where(eq(activities.id, newActId));
+          }
         }
       }
     }
+    
+    page++;
+    if (page > 3) break; // Hard limit for MVP to prevent infinite loops (300 acts)
   }
 }
